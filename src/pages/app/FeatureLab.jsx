@@ -8,9 +8,9 @@ import { Badge, Button, Card, CardHeader, PageHeader } from '../../components/ui
 
 const HOW_TO = {
   announcement_banner: 'Toggle the flag off in Wingify: the banner disappears for everyone within seconds. Edit the message variable to change copy live.',
-  brand_theme: 'Change primary_color (e.g. #0f766e) and the whole product re-skins without a deploy.',
+  brand_theme: 'Switch the rollout to the "Teal rebrand" variation (or edit primary_color) and the whole product re-skins without a deploy.',
   dashboard_v2: 'Add a rollout rule at 50%. Only half your users (sticky by user id) get the new layout and forecast.',
-  onboarding_checklist: 'Personalize rule for user_type = new: guided checklist for new sign-ups, compact for everyone else.',
+  onboarding_checklist: 'A/B test: compact vs guided checklist, measured on onboarding_step_completed. Add an audience of user_type = new to show it only to new sign-ups.',
   pricing_experiment: 'A/B test headline, highlighted plan and CTA. Conversion metric: pricing_cta_clicked / plan_upgraded.',
   regional_pricing: 'Personalize rule for country = IN with currency INR, symbol ₹, rate 83. Sign in as Arjun to see it.',
   new_checkout_flow: 'Test one_click vs review_step checkout and measure plan_upgraded (tracked server-side).',

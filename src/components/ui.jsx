@@ -174,7 +174,7 @@ export function Logo({ className, badge }) {
         <circle cx="22" cy="12" r="3" fill="#fff" opacity=".6" />
       </svg>
       <span className="text-[17px]">Lumen</span>
-      {badge && <Badge color="brand">{badge}</Badge>}
+      {badge && badge !== 'none' && <Badge color="brand">{badge}</Badge>}
     </span>
   );
 }

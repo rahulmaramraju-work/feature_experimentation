@@ -75,7 +75,6 @@ export function FeProvider({ children }) {
     init({
       accountId: config.accountId,
       sdkKey,
-      pollInterval: POLL_MS,
       logger: { level: 'ERROR' },
       // Stateless evaluation so dashboard changes show up immediately during demos.
       clientStorage: { isDisabled: true },
@@ -103,7 +102,25 @@ export function FeProvider({ children }) {
     };
   }, [config, env, push]);
 
-  // Watch for new settings arriving via polling and re-evaluate every flag on the page.
+  // Refresh settings on an interval via our API, which fetches them fresh from Wingify server-side
+  // (the browser settings endpoint is CDN-cached for about a minute).
+  const refreshSettings = useCallback(async () => {
+    if (!client) return;
+    try {
+      const settings = await api('/fe-settings');
+      if (settings?.features) await client.updateSettings(settings);
+    } catch {
+      await client.updateSettings(undefined, false).catch(() => {});
+    }
+  }, [client]);
+
+  useEffect(() => {
+    if (!client) return;
+    const t = setInterval(refreshSettings, POLL_MS);
+    return () => clearInterval(t);
+  }, [client, refreshSettings]);
+
+  // Watch for new settings and re-evaluate every flag on the page.
   useEffect(() => {
     if (!client) return;
     let last = JSON.stringify(client.originalSettings);
@@ -133,11 +150,11 @@ export function FeProvider({ children }) {
 
   const syncNow = useCallback(async () => {
     if (!client) return;
-    await client.updateSettings();
+    await refreshSettings();
     setVersion((v) => v + 1);
     setLastSync(new Date());
     push({ type: 'sync', title: 'Manual sync with Wingify' });
-  }, [client, push]);
+  }, [client, push, refreshSettings]);
 
   const recordDecision = useCallback((key, decision) => {
     setDecisions((d) => ({ ...d, [key]: { ...decision, at: new Date() } }));

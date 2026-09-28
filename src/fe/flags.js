@@ -13,7 +13,7 @@ export const FLAGS = {
     kind: 'Remote config',
     where: 'Whole site colour and badge',
     evaluatedOn: 'client',
-    defaults: { primary_color: '#4f46e5', badge_text: '' },
+    defaults: { primary_color: '#4f46e5', badge_text: 'none' },
   },
   dashboard_v2: {
     name: 'Dashboard v2',
@@ -24,7 +24,7 @@ export const FLAGS = {
   },
   onboarding_checklist: {
     name: 'Onboarding checklist',
-    kind: 'Personalization',
+    kind: 'A/B test',
     where: 'Dashboard, new users',
     evaluatedOn: 'client',
     defaults: { variant: 'compact' },

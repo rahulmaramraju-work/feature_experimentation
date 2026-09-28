@@ -88,11 +88,20 @@ export default function Insights() {
               <div className="mx-auto grid size-12 place-items-center rounded-full bg-slate-900 text-white">
                 <Lock className="size-5" />
               </div>
-              <h3 className="mt-4 font-semibold">AI Insights isn’t available on your plan yet</h3>
-              <p className="mt-1 text-sm text-slate-600">Upgrade to Pro to get weekly AI analysis of your product data.</p>
-              <Button to="/app/billing" className="mt-4">
-                Upgrade to Pro
-              </Button>
+              {user.plan === 'free' ? (
+                <>
+                  <h3 className="mt-4 font-semibold">AI Insights isn’t available on your plan yet</h3>
+                  <p className="mt-1 text-sm text-slate-600">Upgrade to Pro to get weekly AI analysis of your product data.</p>
+                  <Button to="/app/billing" className="mt-4">
+                    Upgrade to Pro
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <h3 className="mt-4 font-semibold">AI Insights is rolling out gradually</h3>
+                  <p className="mt-1 text-sm text-slate-600">Your workspace is on the list. You’ll get access automatically as the rollout expands.</p>
+                </>
+              )}
             </div>
           </div>
         </Card>

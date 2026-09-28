@@ -305,6 +305,19 @@ route('POST', '/admin/reset-demo', async (req, { user }) => {
   return json({ reset: users.length });
 });
 
+// Fresh settings for the browser SDK. Wingify's browser settings endpoint is cached for about a minute;
+// the server fetches directly, so presenters see dashboard changes within seconds.
+route(
+  'GET',
+  '/fe-settings',
+  async (req) => {
+    const client = await feClient(envFromRequest(req));
+    await client.updateSettings();
+    return json(client.originalSettings, 200, { 'cache-control': 'no-store' });
+  },
+  { auth: false },
+);
+
 // Wingify webhook: settings changed in the dashboard -> refresh server SDK instantly.
 route(
   'POST',
