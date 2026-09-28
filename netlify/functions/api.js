@@ -52,6 +52,22 @@ const route = (method, pattern, handler, { auth = true } = {}) => {
   routes.push({ method, regex, keys, handler, auth });
 };
 
+// Deployment health: which required variables are present (names only, never values).
+route(
+  'GET',
+  '/health',
+  () => {
+    const names = ['VWO_ACCOUNT_ID', 'VWO_SDK_KEY_DEV', 'VWO_SDK_KEY_STAGING', 'VWO_SDK_KEY_PROD', 'JWT_SECRET', 'FE_DEFAULT_ENV', 'VWO_WEBHOOK_KEY'];
+    return json({
+      ok: names.slice(0, 5).every((n) => !!process.env[n]),
+      env: Object.fromEntries(names.map((n) => [n, !!process.env[n]])),
+      context: process.env.CONTEXT || null,
+      defaultEnv: defaultEnv(),
+    });
+  },
+  { auth: false },
+);
+
 // Public config for the browser SDK. Client-side SDK keys are public by design.
 route(
   'GET',
