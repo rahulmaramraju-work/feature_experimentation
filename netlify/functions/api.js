@@ -56,10 +56,18 @@ const route = (method, pattern, handler, { auth = true } = {}) => {
 route(
   'GET',
   '/health',
-  () => {
+  async () => {
     const names = ['VWO_ACCOUNT_ID', 'VWO_SDK_KEY_DEV', 'VWO_SDK_KEY_STAGING', 'VWO_SDK_KEY_PROD', 'JWT_SECRET', 'FE_DEFAULT_ENV', 'VWO_WEBHOOK_KEY'];
+    let database = 'ok';
+    try {
+      await db.set('health/ping', { at: new Date().toISOString() });
+      await db.get('health/ping');
+    } catch (err) {
+      database = `error: ${err.message}`;
+    }
     return json({
-      ok: names.slice(0, 5).every((n) => !!process.env[n]),
+      ok: names.slice(0, 5).every((n) => !!process.env[n]) && database === 'ok',
+      database,
       env: Object.fromEntries(names.map((n) => [n, !!process.env[n]])),
       context: process.env.CONTEXT || null,
       defaultEnv: defaultEnv(),
