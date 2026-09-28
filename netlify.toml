@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[dev]
+  command = "npm run dev:vite"
+  targetPort = 5173
+  port = 8888
+  framework = "#custom"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Single-page app: let React Router handle every non-API route.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
