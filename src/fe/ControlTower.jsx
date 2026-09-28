@@ -20,7 +20,7 @@ export default function ControlTower() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-slate-900 py-2.5 pl-3 pr-4 text-sm font-medium text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800"
+        className="fixed bottom-5 left-5 z-40 flex items-center gap-2 rounded-full bg-slate-900 py-2.5 pl-3 pr-4 text-sm font-medium text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800"
       >
         <span className="relative flex size-2.5">
           <span className={clsx('absolute inline-flex size-full animate-ping rounded-full opacity-60', status === 'ready' ? 'bg-emerald-400' : 'bg-amber-400')} />
