@@ -41,6 +41,7 @@ export function FeProvider({ children }) {
   const [lastSync, setLastSync] = useState(null);
   const [decisions, setDecisions] = useState({});
   const [log, setLog] = useState([]);
+  const [anonId, setAnonId] = useState(anonymousId);
   const idRef = useRef(0);
 
   const push = useCallback((entry) => {
@@ -136,7 +137,19 @@ export function FeProvider({ children }) {
     return () => clearInterval(t);
   }, [client, push]);
 
-  const context = useMemo(() => buildFeContext(user) || { id: anonymousId(), customVariables: { plan: 'anonymous' } }, [user]);
+  const context = useMemo(() => buildFeContext(user) || { id: anonId, customVariables: { plan: 'anonymous' } }, [user, anonId]);
+
+  // Start over as a brand-new anonymous visitor: a new id means a fresh A/B bucketing decision.
+  const newVisitor = useCallback(() => {
+    const id = `anon_${crypto.randomUUID().slice(0, 12)}`;
+    try {
+      localStorage.setItem('lumen_anon_id', id);
+    } catch {
+      // ignore storage failures
+    }
+    setAnonId(id);
+    push({ type: 'attribute', title: 'New anonymous visitor', detail: { id } });
+  }, [push]);
   const contextKey = JSON.stringify(context);
 
   // Push the user's attributes to Wingify for segmentation in reports.
@@ -186,6 +199,7 @@ export function FeProvider({ children }) {
     config,
     context,
     contextKey,
+    newVisitor,
     version,
     lastSync,
     syncNow,

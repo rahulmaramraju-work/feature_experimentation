@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Check } from 'lucide-react';
+import { Check, FlaskConical, RefreshCw } from 'lucide-react';
 import { PLANS, PLAN_ORDER, planRank } from '../../shared/plans';
 import { useFeature } from '../fe/useFeature';
 import { useFe } from '../fe/FeProvider';
@@ -21,7 +21,9 @@ export function usePrice() {
 // currency comes from regional_pricing.
 export default function PricingTable({ currentPlan, onSelect, busyPlan, compact }) {
   const pricing = useFeature('pricing_experiment');
-  const { track } = useFe();
+  const { track, newVisitor, context } = useFe();
+  const isAnonymous = context?.customVariables?.plan === 'anonymous';
+  const variationName = pricing.enabled && pricing.variables.highlight_plan === 'enterprise' ? 'Value-led' : 'Control';
   const { format, currency } = usePrice();
   const [interval, setBillingInterval] = useState('monthly');
   const highlight = pricing.get('highlight_plan');
@@ -38,6 +40,17 @@ export default function PricingTable({ currentPlan, onSelect, busyPlan, compact 
         <div className="mx-auto mb-10 max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{pricing.get('headline')}</h2>
           <p className="mt-3 text-slate-600">Start free. Upgrade when your team needs more. Cancel anytime.</p>
+          {pricing.ready && (
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-dashed border-slate-300 bg-white px-3 py-1 text-xs text-slate-600">
+              <FlaskConical className="size-3.5 text-brand" />
+              A/B test <code className="font-semibold">pricing_experiment</code>: you’re seeing <b>{variationName}</b>
+              {isAnonymous && (
+                <button onClick={newVisitor} className="ml-1 inline-flex items-center gap-1 font-medium text-brand hover:underline">
+                  <RefreshCw className="size-3" /> New visitor
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
       <div className="mb-8 flex items-center justify-center gap-3">

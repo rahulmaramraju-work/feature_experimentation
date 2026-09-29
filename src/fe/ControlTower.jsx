@@ -192,7 +192,7 @@ function FlagRow({ flagKey, decision }) {
 }
 
 function ContextTab() {
-  const { context, config } = useFe();
+  const { context, config, newVisitor } = useFe();
   const { user, demoLogin } = useAuth();
   const [busy, setBusy] = useState(null);
   const switchTo = async (email) => {
@@ -209,6 +209,11 @@ function ContextTab() {
         <p className="mt-2 text-xs text-slate-500">
           Rules in Wingify target these <code>customVariables</code>. Bucketing is sticky per <code>id</code>, so a user always gets the same variation.
         </p>
+        {!user && (
+          <button onClick={newVisitor} className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50">
+            Become a new anonymous visitor (new id, new A/B decision)
+          </button>
+        )}
       </div>
       {config?.demoAccounts && (
         <div>

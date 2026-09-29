@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import clsx from 'clsx';
 import { FlaskConical, Monitor, Play, Server } from 'lucide-react';
-import { useFe } from '../../fe/FeProvider';
+import { useFe, toVariables } from '../../fe/FeProvider';
 import { useFeature } from '../../fe/useFeature';
 import { FLAGS } from '../../fe/flags';
 import { Badge, Button, Card, CardHeader, PageHeader } from '../../components/ui';
@@ -43,10 +43,25 @@ function LabRow({ flagKey }) {
   );
 }
 
-// Evaluates a flag for 100 synthetic users to visualise percentage rollouts and sticky bucketing.
+// Variable that tells variations apart, per flag, for colouring the simulator grid.
+const VARIANT_VAR = {
+  pricing_experiment: 'highlight_plan',
+  new_checkout_flow: 'flow',
+  onboarding_checklist: 'variant',
+  smart_recommendations: 'algorithm',
+  dashboard_v2: 'show_forecast',
+  brand_theme: 'primary_color',
+  announcement_banner: 'tone',
+  regional_pricing: 'currency',
+  ai_insights: 'model',
+  csv_export: 'formats',
+};
+const SWATCHES = ['bg-brand', 'bg-amber-400', 'bg-emerald-500', 'bg-sky-500'];
+
+// Evaluates a flag for 100 synthetic users to visualise rollouts, A/B splits and sticky bucketing.
 function RolloutSimulator() {
   const { client, env } = useFe();
-  const [flagKey, setFlagKey] = useState('dashboard_v2');
+  const [flagKey, setFlagKey] = useState('pricing_experiment');
   const [plan, setPlan] = useState('pro');
   const [cells, setCells] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -58,36 +73,41 @@ function RolloutSimulator() {
       Array.from({ length: 100 }, (_, i) =>
         client
           .getFlag(flagKey, { id: `sim_user_${i}`, customVariables: { plan, country: 'US', user_type: 'returning', is_internal: false } })
-          .then((f) => f.isEnabled())
-          .catch(() => false),
+          .then((f) => {
+            if (!f.isEnabled()) return null;
+            const v = toVariables(f.getVariables())[VARIANT_VAR[flagKey]];
+            return v === undefined ? 'on' : String(v);
+          })
+          .catch(() => null),
       ),
     );
     setCells(results);
     setBusy(false);
   };
 
-  const on = cells ? cells.filter(Boolean).length : 0;
+  const groups = cells ? [...new Set(cells.filter((c) => c !== null))] : [];
+  const colour = (c) => (c === null ? 'bg-slate-200' : SWATCHES[groups.indexOf(c) % SWATCHES.length]);
+  const count = (g) => cells.filter((c) => c === g).length;
+
   return (
     <Card className="mb-6">
       <CardHeader
-        title="Rollout simulator"
-        description="Evaluates a flag for 100 simulated users. Re-run it and the same users keep the same decision (deterministic bucketing)."
+        title="Rollout & A/B simulator"
+        description="Evaluates a flag for 100 simulated users. Colours show which variation each user gets; re-run it and every user keeps the same decision."
         action={env !== 'prod' ? <Badge color="amber">sends impressions to {env}</Badge> : <Badge color="red">prod: use sparingly</Badge>}
       />
       <div className="flex flex-wrap items-end gap-3 px-5 pt-5">
         <div>
-          <label className="label">Flag</label>
-          <select className="input w-56" value={flagKey} onChange={(e) => setFlagKey(e.target.value)}>
-            {Object.keys(FLAGS)
-              .filter((k) => FLAGS[k].evaluatedOn === 'client')
-              .map((k) => (
-                <option key={k}>{k}</option>
-              ))}
+          <label className="label" htmlFor="sim-flag">Flag</label>
+          <select id="sim-flag" className="input w-56" value={flagKey} onChange={(e) => (setFlagKey(e.target.value), setCells(null))}>
+            {Object.keys(FLAGS).map((k) => (
+              <option key={k}>{k}</option>
+            ))}
           </select>
         </div>
         <div>
-          <label className="label">Simulated plan</label>
-          <select className="input w-40" value={plan} onChange={(e) => setPlan(e.target.value)}>
+          <label className="label" htmlFor="sim-plan">Simulated plan</label>
+          <select id="sim-plan" className="input w-40" value={plan} onChange={(e) => (setPlan(e.target.value), setCells(null))}>
             <option value="free">free</option>
             <option value="pro">pro</option>
             <option value="enterprise">enterprise</option>
@@ -96,19 +116,24 @@ function RolloutSimulator() {
         <Button onClick={run} loading={busy} disabled={!client}>
           <Play className="size-4" /> Simulate 100 users
         </Button>
-        {cells && (
-          <p className="ml-auto text-sm">
-            <span className="text-2xl font-semibold text-brand">{on}%</span> <span className="text-slate-500">received the feature</span>
-          </p>
-        )}
       </div>
-      <div className="grid grid-cols-20 gap-1.5 p-5" style={{ gridTemplateColumns: 'repeat(20, minmax(0, 1fr))' }}>
+      {cells && (
+        <div className="flex flex-wrap gap-x-5 gap-y-2 px-5 pt-4 text-sm">
+          {groups.map((g) => (
+            <span key={g} className="flex items-center gap-2">
+              <span className={clsx('size-3 rounded-sm', colour(g))} />
+              <code className="text-slate-700">{VARIANT_VAR[flagKey]} = {g}</code>
+              <b className="tabular-nums">{count(g)}%</b>
+            </span>
+          ))}
+          <span className="flex items-center gap-2 text-slate-500">
+            <span className="size-3 rounded-sm bg-slate-200" /> not in rule / flag off <b className="tabular-nums">{count(null)}%</b>
+          </span>
+        </div>
+      )}
+      <div className="grid gap-1.5 p-5" style={{ gridTemplateColumns: 'repeat(20, minmax(0, 1fr))' }}>
         {Array.from({ length: 100 }, (_, i) => (
-          <div
-            key={i}
-            title={`sim_user_${i}`}
-            className={clsx('aspect-square rounded-[4px] transition-colors duration-500', !cells ? 'bg-slate-100' : cells[i] ? 'bg-brand' : 'bg-slate-200')}
-          />
+          <div key={i} title={`sim_user_${i}${cells ? `: ${cells[i] ?? 'off'}` : ''}`} className={clsx('aspect-square rounded-[4px] transition-colors duration-500', !cells ? 'bg-slate-100' : colour(cells[i]))} />
         ))}
       </div>
     </Card>
