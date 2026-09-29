@@ -11,6 +11,7 @@ export function usePrice() {
 // Pricing plans with a monthly / annual toggle.
 export default function PricingTable({ currentPlan, onSelect, busyPlan, compact }) {
   const [interval, setBillingInterval] = useState('monthly');
+  const { format } = usePrice();
   const highlight = 'pro';
 
   const choose = (planId) => onSelect(planId, interval);
