@@ -2,10 +2,10 @@
 // Keys are namespaced like "users/<id>", "email/<email>", "projects/<userId>".
 import { getStore } from '@netlify/blobs';
 
-let store;
+// Get the store per call: Netlify hands each invocation a short-lived Blobs token,
+// so a store cached across warm invocations fails once that token expires.
 function db() {
-  if (!store) store = getStore({ name: 'lumen-db', consistency: 'strong' });
-  return store;
+  return getStore({ name: 'lumen-db', consistency: 'strong' });
 }
 
 export async function get(key, fallback = null) {
