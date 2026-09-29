@@ -3,7 +3,6 @@ import { Trash2, UserPlus } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { useApi } from '../../lib/useApi';
 import { api } from '../../lib/api';
-import { useFe } from '../../fe/FeProvider';
 import { PLANS } from '../../../shared/plans';
 import { Alert, Badge, Button, Card, CardHeader, PageHeader, Spinner } from '../../components/ui';
 
@@ -17,7 +16,6 @@ const initials = (n) =>
 
 export default function Team() {
   const { user } = useAuth();
-  const { track } = useFe();
   const { data, setData, loading } = useApi('/team');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('Member');
@@ -33,7 +31,6 @@ export default function Team() {
     try {
       const { member } = await api('/team', { method: 'POST', body: { email, role } });
       setData({ members: [...members, member] });
-      track('team_invite_sent', { role, seats_used: members.length + 2 });
       setEmail('');
     } catch (err) {
       setError(err.message);

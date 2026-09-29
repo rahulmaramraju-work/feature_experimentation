@@ -78,3 +78,37 @@ body {
 .animate-flash {
   animation: flash 0.9s ease-out;
 }
+
+/* ---- Flag demo visual cues ---- */
+@keyframes flag-flash {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 70%, transparent); }
+  35% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--brand) 45%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.flag-flash {
+  animation: flag-flash 1.2s ease-out 2;
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.flag-outline {
+  outline: 2px dashed #c026d3;
+  outline-offset: -2px;
+}
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(-100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-banner {
+  animation: banner-in 0.35s ease-out both;
+}
+@keyframes pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  70% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.animate-pop {
+  animation: pop 0.45s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flag-flash, .animate-banner, .animate-pop, .animate-fade-up, .animate-slide-in { animation: none; }
+}

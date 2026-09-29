@@ -1,26 +1,13 @@
-import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import clsx from 'clsx';
-import { Lightbulb, Lock, Server, Sparkles, Wand2 } from 'lucide-react';
+import { Lightbulb, Lock, Sparkles, Wand2 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { useApi } from '../../lib/useApi';
-import { useFe } from '../../fe/FeProvider';
 import { Badge, Button, Card, CardHeader, PageHeader, Spinner } from '../../components/ui';
 
 const IMPACT = { high: 'red', medium: 'amber', low: 'gray' };
 
-// Both flags on this page are evaluated on the server by the Node SDK (Netlify Function).
 export default function Insights() {
   const { user } = useAuth();
-  const { env, version, recordDecision, track } = useFe();
-  const { data, loading } = useApi('/insights', [user.plan, user.country, env, version]);
-
-  useEffect(() => {
-    if (!data) return;
-    data.decisions.forEach((d) => recordDecision(d.key, d));
-    if (data.insights.length) track('insight_viewed', { count: data.insights.length, model: data.model || 'none' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  const { data, loading } = useApi('/insights', [user.plan]);
 
   if (loading && !data)
     return (
@@ -35,11 +22,6 @@ export default function Insights() {
       <PageHeader
         title="AI Insights"
         description="Lumen analyses your workspace and surfaces what changed, and what to do next."
-        actions={
-          <Badge color="violet">
-            <Server className="size-3" /> Decided server-side · {data.env}
-          </Badge>
-        }
       />
 
       {aiOn ? (
@@ -111,11 +93,10 @@ export default function Insights() {
         <CardHeader
           title="Recommended next steps"
           description="Suggestions ranked for your workspace"
-          action={<Badge color={data.algorithm === 'personalized' ? 'brand' : 'gray'}>algorithm: {data.algorithm}</Badge>}
         />
         <div className="grid gap-4 p-5 md:grid-cols-3">
           {data.recommendations.map((r) => (
-            <div key={r.title} className={clsx('rounded-xl border p-4', data.algorithm === 'personalized' ? 'border-brand-ring bg-brand-soft/40' : 'border-slate-200')}>
+            <div key={r.title} className="rounded-xl border border-slate-200 p-4">
               <Wand2 className="size-5 text-brand" />
               <p className="mt-3 text-sm font-semibold">{r.title}</p>
               <p className="mt-1 text-xs text-slate-500">{r.reason}</p>
@@ -124,13 +105,6 @@ export default function Insights() {
         </div>
       </Card>
 
-      <p className="mt-6 text-xs text-slate-400">
-        Tip: open the FE Control Tower to see the server-side decisions for <code>ai_insights</code> and <code>smart_recommendations</code>, or visit the{' '}
-        <Link to="/app/feature-lab" className="underline">
-          Feature Lab
-        </Link>
-        .
-      </p>
     </div>
   );
 }

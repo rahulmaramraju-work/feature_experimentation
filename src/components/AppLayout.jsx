@@ -3,9 +3,9 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   BarChart3,
+  ChevronsUpDown,
   CreditCard,
   FileText,
-  FlaskConical,
   FolderKanban,
   LayoutDashboard,
   LogOut,
@@ -16,12 +16,10 @@ import {
   Sparkles,
   Users,
   X,
-  ChevronsUpDown,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { useFe } from '../fe/FeProvider';
-import { useFeature } from '../fe/useFeature';
-import { AnnouncementBanner } from '../fe/FeatureEffects';
+import { useFlag } from '../flags/FlagProvider';
+import { Banners, FlagZone } from '../flags/FlagVisuals';
 import { PLANS } from '../../shared/plans';
 import { Badge, Logo, PlanBadge } from './ui';
 
@@ -37,9 +35,14 @@ const NAV_ACCOUNT = [
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ];
 
-const ENV_BADGE = { dev: 'bg-sky-100 text-sky-800', staging: 'bg-amber-100 text-amber-800', prod: 'bg-emerald-100 text-emerald-800' };
+const initials = (name) =>
+  name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2);
 
-function NavItem({ item, onClick }) {
+function SideItem({ item, onClick }) {
   const Icon = item.icon;
   return (
     <NavLink
@@ -62,12 +65,11 @@ function NavItem({ item, onClick }) {
 
 function Sidebar({ onNavigate }) {
   const { user } = useAuth();
-  const theme = useFeature('brand_theme');
   const plan = PLANS[user.plan];
   return (
     <div className="flex h-full flex-col gap-6 px-4 py-5">
       <Link to="/app" className="px-2">
-        <Logo badge={theme.get('badge_text')} />
+        <Logo />
       </Link>
       <button className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left shadow-sm">
         <span className="grid size-8 place-items-center rounded-md bg-slate-900 text-xs font-bold text-white">{user.company.slice(0, 2).toUpperCase()}</span>
@@ -79,21 +81,17 @@ function Sidebar({ onNavigate }) {
       </button>
       <nav className="space-y-1">
         {NAV.map((i) => (
-          <NavItem key={i.to} item={i} onClick={onNavigate} />
+          <SideItem key={i.to} item={i} onClick={onNavigate} />
         ))}
       </nav>
       <div>
         <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Account</p>
         <nav className="space-y-1">
           {NAV_ACCOUNT.map((i) => (
-            <NavItem key={i.to} item={i} onClick={onNavigate} />
+            <SideItem key={i.to} item={i} onClick={onNavigate} />
           ))}
-          {user.role === 'admin' && <NavItem item={{ to: '/app/admin', label: 'Admin', icon: ShieldCheck }} onClick={onNavigate} />}
+          {user.role === 'admin' && <SideItem item={{ to: '/app/admin', label: 'Admin', icon: ShieldCheck }} onClick={onNavigate} />}
         </nav>
-      </div>
-      <div>
-        <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Demo</p>
-        <NavItem item={{ to: '/app/feature-lab', label: 'Feature Lab', icon: FlaskConical }} onClick={onNavigate} />
       </div>
       <div className="mt-auto">
         {user.plan === 'free' ? (
@@ -119,26 +117,89 @@ function Sidebar({ onNavigate }) {
   );
 }
 
-export default function AppLayout() {
-  const { user, logout } = useAuth();
-  const { env } = useFe();
-  const navigate = useNavigate();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+// Top navigation: the whole menu lives in a horizontal bar, no sidebar.
+function TopNav() {
+  const { user } = useAuth();
+  const items = [...NAV, ...NAV_ACCOUNT, ...(user.role === 'admin' ? [{ to: '/app/admin', label: 'Admin', icon: ShieldCheck }] : [])];
+  return (
+    <nav className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 sm:px-6">
+      {items.map(({ to, label, icon: Icon, end }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={end}
+          className={({ isActive }) =>
+            clsx('flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition', isActive ? 'border-brand text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900')
+          }
+        >
+          <Icon className="size-4" /> {label}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
 
+function UserMenu() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
   const signOut = async () => {
     await logout();
     navigate('/login');
   };
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2.5 rounded-lg p-1 pr-2 hover:bg-slate-100">
+        <span className="grid size-8 place-items-center rounded-full bg-brand text-sm font-semibold text-white">{initials(user.name)}</span>
+        <span className="hidden text-left sm:block">
+          <span className="block text-sm font-medium leading-tight">{user.name}</span>
+          <span className="block text-xs leading-tight text-slate-500">{user.email}</span>
+        </span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="card absolute right-0 z-20 mt-2 w-56 animate-fade-up p-1.5 shadow-lg">
+            <Link to="/app/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100">
+              <Settings className="size-4" /> Settings
+            </Link>
+            <Link to="/app/billing" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100">
+              <CreditCard className="size-4" /> Billing
+            </Link>
+            <button onClick={signOut} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
+              <LogOut className="size-4" /> Sign out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SearchBox() {
+  return (
+    <div className="relative hidden max-w-md flex-1 sm:block">
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+      <input className="input pl-9" placeholder="Search dashboards, projects, reports…" aria-label="Search" />
+    </div>
+  );
+}
+
+export default function AppLayout() {
+  const { values } = useFlag();
+  const side = values.navigation === 'side';
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen flex-col">
-      <AnnouncementBanner />
+      <Banners />
       <div className="flex flex-1">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-slate-100/60 lg:block">
-          <Sidebar />
-        </aside>
-        {mobileOpen && (
+        {side && (
+          <FlagZone vars={['navigation']} label="navigation = side" as="aside" className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-slate-100/60 lg:block">
+            <Sidebar />
+          </FlagZone>
+        )}
+        {side && mobileOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div className="absolute inset-0 bg-slate-900/40" onClick={() => setMobileOpen(false)} />
             <aside className="relative h-full w-72 bg-slate-50 shadow-xl">
@@ -151,49 +212,30 @@ export default function AppLayout() {
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6">
-            <button className="rounded-md p-1.5 text-slate-600 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
-              <Menu className="size-5" />
-            </button>
-            <div className="relative hidden max-w-md flex-1 sm:block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <input className="input pl-9" placeholder="Search dashboards, projects, reports…" />
-            </div>
-            <div className="ml-auto flex items-center gap-3">
-              {env && <span className={clsx('hidden rounded-md px-2 py-1 text-xs font-semibold uppercase tracking-wide sm:inline', ENV_BADGE[env])}>FE: {env}</span>}
-              <div className="relative">
-                <button onClick={() => setMenuOpen((o) => !o)} className="flex items-center gap-2.5 rounded-lg p-1 pr-2 hover:bg-slate-100">
-                  <span className="grid size-8 place-items-center rounded-full bg-brand text-sm font-semibold text-white">
-                    {user.name
-                      .split(' ')
-                      .map((p) => p[0])
-                      .join('')
-                      .slice(0, 2)}
-                  </span>
-                  <span className="hidden text-left sm:block">
-                    <span className="block text-sm font-medium leading-tight">{user.name}</span>
-                    <span className="block text-xs leading-tight text-slate-500">{user.email}</span>
-                  </span>
-                </button>
-                {menuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                    <div className="card absolute right-0 z-20 mt-2 w-56 animate-fade-up p-1.5 shadow-lg">
-                      <Link to="/app/settings" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100">
-                        <Settings className="size-4" /> Settings
-                      </Link>
-                      <Link to="/app/billing" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100">
-                        <CreditCard className="size-4" /> Billing
-                      </Link>
-                      <button onClick={signOut} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
-                        <LogOut className="size-4" /> Sign out
-                      </button>
-                    </div>
-                  </>
-                )}
+          {side ? (
+            <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6">
+              <button className="rounded-md p-1.5 text-slate-600 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
+                <Menu className="size-5" />
+              </button>
+              <SearchBox />
+              <div className="ml-auto">
+                <UserMenu />
               </div>
-            </div>
-          </header>
+            </header>
+          ) : (
+            <FlagZone vars={['navigation']} label="navigation = top" as="header" className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+              <div className="flex h-16 items-center gap-6 px-4 sm:px-6">
+                <Link to="/app">
+                  <Logo />
+                </Link>
+                <SearchBox />
+                <div className="ml-auto">
+                  <UserMenu />
+                </div>
+              </div>
+              <TopNav />
+            </FlagZone>
+          )}
           <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10">
             <div className="mx-auto max-w-7xl">
               <Outlet />

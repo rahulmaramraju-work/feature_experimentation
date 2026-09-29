@@ -2,10 +2,8 @@ import * as db from './lib/db.js';
 import { hashPassword, checkPassword, sessionCookie, clearCookie, currentUser, publicUser } from './lib/auth.js';
 import { ensureDemoAccount, resetAllDemoAccounts } from './lib/seed.js';
 import { workspaceAnalytics } from './lib/analytics.js';
-import { feClient, envFromRequest, defaultEnv, sdkKeyFor, refreshAll } from './lib/fe.js';
-import { PLANS } from '../../shared/plans.js';
+import { PLANS, planRank } from '../../shared/plans.js';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../shared/demoAccounts.js';
-import { buildFeContext, FE_ENVIRONMENTS } from '../../shared/feContext.js';
 
 export const config = { path: '/api/*' };
 
@@ -28,22 +26,6 @@ async function logActivity(userId, type, text) {
   await db.set(`activity/${userId}`, items.slice(0, 50));
 }
 
-function flagToJson(key, flag) {
-  const raw = flag.getVariables() || [];
-  const variables = Array.isArray(raw) ? Object.fromEntries(raw.map((v) => [v.key, v.value])) : raw;
-  return { key, enabled: flag.isEnabled(), variables, evaluatedOn: 'server' };
-}
-
-// Evaluate a flag server-side; never let an FE outage break the product.
-async function serverFlag(req, user, key) {
-  try {
-    const client = await feClient(envFromRequest(req));
-    return flagToJson(key, await client.getFlag(key, buildFeContext(user)));
-  } catch (err) {
-    return { key, enabled: false, variables: {}, evaluatedOn: 'server', error: err.message };
-  }
-}
-
 // ---------- route handlers ----------
 const routes = [];
 const route = (method, pattern, handler, { auth = true } = {}) => {
@@ -57,7 +39,7 @@ route(
   'GET',
   '/health',
   async () => {
-    const names = ['VWO_ACCOUNT_ID', 'VWO_SDK_KEY_DEV', 'VWO_SDK_KEY_STAGING', 'VWO_SDK_KEY_PROD', 'JWT_SECRET', 'FE_DEFAULT_ENV', 'VWO_WEBHOOK_KEY'];
+    const names = ['JWT_SECRET'];
     let database = 'ok';
     try {
       await db.set('health/ping', { at: new Date().toISOString() });
@@ -66,25 +48,20 @@ route(
       database = `error: ${err.message}`;
     }
     return json({
-      ok: names.slice(0, 5).every((n) => !!process.env[n]) && database === 'ok',
+      ok: names.every((n) => !!process.env[n]) && database === 'ok',
       database,
       env: Object.fromEntries(names.map((n) => [n, !!process.env[n]])),
-      context: process.env.CONTEXT || null,
-      defaultEnv: defaultEnv(),
     });
   },
   { auth: false },
 );
 
-// Public config for the browser SDK. Client-side SDK keys are public by design.
+// Public config: demo accounts shown on the login page.
 route(
   'GET',
   '/config',
   () =>
     json({
-      accountId: process.env.VWO_ACCOUNT_ID,
-      defaultEnv: defaultEnv(),
-      environments: Object.fromEntries(FE_ENVIRONMENTS.map((e) => [e, sdkKeyFor(e) || null])),
       demoAccounts: DEMO_ACCOUNTS.map(({ email, name, title, company, plan, persona, role }) => ({ email, name, title, company, plan, persona, role })),
       demoPassword: DEMO_PASSWORD,
     }),
@@ -211,9 +188,8 @@ route('GET', '/dashboard', async (req, { user }) => {
   return json({ ...workspaceAnalytics(user, projects), activity: activity.slice(0, 8), projectCount: projects.length });
 });
 
-// AI insights + recommendations, decided server-side by the Node SDK.
+// AI insights (Pro and Enterprise) and recommended next steps.
 route('GET', '/insights', async (req, { user }) => {
-  const [ai, recs] = await Promise.all([serverFlag(req, user, 'ai_insights'), serverFlag(req, user, 'smart_recommendations')]);
   const data = workspaceAnalytics(user, await db.get(`projects/${user.id}`, []));
   const [users, sessions, conv, revenue] = data.kpis;
   const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -225,11 +201,10 @@ route('GET', '/insights', async (req, { user }) => {
     { title: 'Weekend traffic dips ~28%', body: 'Schedule campaigns for Thursday–Friday to capture peak intent.', impact: 'low' },
     { title: `Sessions per user: ${(sessions.value / users.value).toFixed(2)}`, body: 'Engagement is healthy. Returning users are 2.1× more likely to convert.', impact: 'low' },
   ];
-  const insights = ai.enabled ? all.slice(0, Number(ai.variables.max_insights) || 3) : [];
+  const insights = planRank(user.plan) >= planRank('pro') ? all.slice(0, user.plan === 'enterprise' ? 6 : 3) : [];
 
-  const algorithm = recs.enabled ? recs.variables.algorithm || 'popular' : 'popular';
   const recommendations =
-    algorithm === 'personalized'
+    user.plan !== 'free'
       ? [
           { title: `Build an activation funnel for ${user.company}`, reason: 'Based on your drop-off between sign-up and activation' },
           { title: 'Set up a retention cohort by plan', reason: `Teams of ~${user.companySize} people usually start here` },
@@ -241,18 +216,8 @@ route('GET', '/insights', async (req, { user }) => {
           { title: 'Invite your team', reason: 'Teams with 3+ members see 2× more value' },
         ];
 
-  return json({ insights, recommendations, algorithm, model: ai.variables.model || null, decisions: [ai, recs], env: envFromRequest(req) });
+  return json({ insights, recommendations, model: user.plan === 'enterprise' ? 'lumen-pro' : 'lumen-lite' });
 });
-
-// Server-side event tracking (conversion that happens on the backend, e.g. a completed payment).
-async function serverTrack(req, user, event, props) {
-  try {
-    const client = await feClient(envFromRequest(req));
-    await client.trackEvent(event, buildFeContext(user), props);
-  } catch {
-    // tracking must never block the product flow
-  }
-}
 
 // Team
 route('GET', '/team', async (req, { user }) => json({ members: await db.get(`team/${user.id}`, []) }));
@@ -293,7 +258,6 @@ route('POST', '/billing/checkout', async (req, { user }) => {
     const amount = interval === 'annual' ? plan.annual * 12 : plan.monthly;
     invoices.unshift({ id: db.newId('inv'), date: new Date().toISOString(), plan: plan.id, interval, amount, status: 'paid' });
     await db.set(`billing/${user.id}`, invoices);
-    await serverTrack(req, user, 'plan_upgraded', { plan: plan.id, from: previous, amount, interval });
   }
   await logActivity(user.id, 'billing', `Changed plan from ${PLANS[previous].name} to ${plan.name}`);
   return json({ user: publicUser(user), invoices });
@@ -328,32 +292,6 @@ route('POST', '/admin/reset-demo', async (req, { user }) => {
   const users = await resetAllDemoAccounts();
   return json({ reset: users.length });
 });
-
-// Fresh settings for the browser SDK. Wingify's browser settings endpoint is cached for about a minute;
-// the server fetches directly, so presenters see dashboard changes within seconds.
-route(
-  'GET',
-  '/fe-settings',
-  async (req) => {
-    const client = await feClient(envFromRequest(req));
-    await client.updateSettings();
-    return json(client.originalSettings, 200, { 'cache-control': 'no-store' });
-  },
-  { auth: false },
-);
-
-// Wingify webhook: settings changed in the dashboard -> refresh server SDK instantly.
-route(
-  'POST',
-  '/webhooks/wingify',
-  async (req) => {
-    const expected = process.env.VWO_WEBHOOK_KEY;
-    if (expected && req.headers.get('x-vwo-auth') !== expected) return fail(401, 'Invalid webhook signature.');
-    const refreshed = await refreshAll();
-    return json({ status: 'success', refreshed });
-  },
-  { auth: false },
-);
 
 // ---------- dispatcher ----------
 export default async (req) => {

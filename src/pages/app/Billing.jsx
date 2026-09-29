@@ -3,22 +3,18 @@ import { CheckCircle2, CreditCard, Lock, ShieldCheck, Undo2 } from 'lucide-react
 import { useAuth } from '../../lib/auth';
 import { useApi } from '../../lib/useApi';
 import { api } from '../../lib/api';
-import { useFe } from '../../fe/FeProvider';
-import { useFeature } from '../../fe/useFeature';
 import { PLANS, planRank } from '../../../shared/plans';
 import PricingTable, { usePrice } from '../../components/PricingTable';
 import { Alert, Badge, Button, Card, CardHeader, Modal, PageHeader, PlanBadge, fmtDate } from '../../components/ui';
 
-// new_checkout_flow decides between a one-click upgrade and a review step.
+// Upgrades show a review step; downgrades a simple confirmation.
 function Checkout({ target, onClose, onDone }) {
-  const flag = useFeature('new_checkout_flow');
   const { format } = usePrice();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   if (!target) return null;
   const plan = PLANS[target.plan];
-  const flow = flag.get('flow');
-  const trust = flag.get('show_trust_badges');
+  const trust = true;
   const price = target.interval === 'annual' ? plan.annual * 12 : plan.monthly;
   const downgrade = target.plan === 'free';
 
@@ -26,7 +22,7 @@ function Checkout({ target, onClose, onDone }) {
     setBusy(true);
     setError('');
     try {
-      await onDone(target, flow);
+      await onDone(target);
     } catch (e) {
       setError(e.message);
       setBusy(false);
@@ -47,7 +43,7 @@ function Checkout({ target, onClose, onDone }) {
     </div>
   );
 
-  if (downgrade || flow === 'one_click') {
+  if (downgrade) {
     return (
       <Modal
         open
@@ -128,7 +124,6 @@ function Checkout({ target, onClose, onDone }) {
 
 export default function Billing() {
   const { user, setUser } = useAuth();
-  const { track, push } = useFe();
   const { format } = usePrice();
   const { data, setData } = useApi('/billing');
   const [target, setTarget] = useState(null);
@@ -136,14 +131,11 @@ export default function Billing() {
 
   const select = (plan, interval) => {
     if (plan === user.plan) return;
-    if (planRank(plan) > planRank(user.plan)) track('checkout_started', { plan, interval });
     setTarget({ plan, interval });
   };
 
-  const complete = async (t, flow) => {
+  const complete = async (t) => {
     const res = await api('/billing/checkout', { method: 'POST', body: t });
-    // plan_upgraded is tracked server-side (Node SDK) once payment succeeds, so it isn't double-counted here.
-    if (planRank(t.plan) > planRank(user.plan)) push({ type: 'event', title: 'trackEvent: plan_upgraded (server-side)', detail: { plan: t.plan, flow } });
     setUser(res.user);
     setData({ ...data, invoices: res.invoices, plan: res.user.plan });
     setTarget(null);

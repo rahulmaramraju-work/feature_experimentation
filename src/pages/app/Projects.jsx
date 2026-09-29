@@ -3,7 +3,6 @@ import { FolderKanban, Globe, Pause, Play, Plus, Server, Smartphone, Trash2 } fr
 import { useAuth } from '../../lib/auth';
 import { useApi } from '../../lib/useApi';
 import { api } from '../../lib/api';
-import { useFe } from '../../fe/FeProvider';
 import { PLANS } from '../../../shared/plans';
 import { Alert, Badge, Button, Card, EmptyState, Modal, PageHeader, Spinner, fmtDate } from '../../components/ui';
 
@@ -11,7 +10,6 @@ const PLATFORM_ICON = { Web: Globe, iOS: Smartphone, Android: Smartphone, Server
 
 export default function Projects() {
   const { user } = useAuth();
-  const { track } = useFe();
   const { data, setData, loading } = useApi('/projects');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', platform: 'Web' });
@@ -28,7 +26,6 @@ export default function Projects() {
     try {
       const { project } = await api('/projects', { method: 'POST', body: form });
       setData({ projects: [...projects, project] });
-      track('project_created', { platform: project.platform, total: projects.length + 1 });
       setOpen(false);
       setForm({ name: '', platform: 'Web' });
     } catch (err) {

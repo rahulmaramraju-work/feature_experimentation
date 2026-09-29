@@ -1,56 +1,26 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Check, FlaskConical, RefreshCw } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { PLANS, PLAN_ORDER, planRank } from '../../shared/plans';
-import { useFeature } from '../fe/useFeature';
-import { useFe } from '../fe/FeProvider';
 import { Badge, Button } from './ui';
 
 export function usePrice() {
-  const regional = useFeature('regional_pricing');
-  const symbol = regional.get('symbol');
-  const rate = Number(regional.get('rate')) || 1;
-  const currency = regional.get('currency');
-  return {
-    currency,
-    format: (usd) => (usd === 0 ? `${symbol}0` : `${symbol}${Math.round(usd * rate).toLocaleString('en-US')}`),
-  };
+  return { format: (usd) => `$${Math.round(usd).toLocaleString('en-US')}` };
 }
 
-// Pricing plans. Copy, highlighted plan and CTA come from the pricing_experiment flag;
-// currency comes from regional_pricing.
+// Pricing plans with a monthly / annual toggle.
 export default function PricingTable({ currentPlan, onSelect, busyPlan, compact }) {
-  const pricing = useFeature('pricing_experiment');
-  const { track, newVisitor, context } = useFe();
-  const isAnonymous = context?.customVariables?.plan === 'anonymous';
-  const variationName = pricing.enabled && pricing.variables.highlight_plan === 'enterprise' ? 'Value-led' : 'Control';
-  const { format, currency } = usePrice();
   const [interval, setBillingInterval] = useState('monthly');
-  const highlight = pricing.get('highlight_plan');
-  const showSavings = pricing.get('show_annual_savings');
+  const highlight = 'pro';
 
-  const choose = (planId) => {
-    track('pricing_cta_clicked', { plan: planId, interval, surface: currentPlan ? 'billing' : 'marketing' });
-    onSelect(planId, interval);
-  };
+  const choose = (planId) => onSelect(planId, interval);
 
   return (
     <div>
       {!compact && (
         <div className="mx-auto mb-10 max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{pricing.get('headline')}</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Simple pricing that scales with you</h2>
           <p className="mt-3 text-slate-600">Start free. Upgrade when your team needs more. Cancel anytime.</p>
-          {pricing.ready && (
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-dashed border-slate-300 bg-white px-3 py-1 text-xs text-slate-600">
-              <FlaskConical className="size-3.5 text-brand" />
-              A/B test <code className="font-semibold">pricing_experiment</code>: you’re seeing <b>{variationName}</b>
-              {isAnonymous && (
-                <button onClick={newVisitor} className="ml-1 inline-flex items-center gap-1 font-medium text-brand hover:underline">
-                  <RefreshCw className="size-3" /> New visitor
-                </button>
-              )}
-            </div>
-          )}
         </div>
       )}
       <div className="mb-8 flex items-center justify-center gap-3">
@@ -65,8 +35,7 @@ export default function PricingTable({ currentPlan, onSelect, busyPlan, compact 
             </button>
           ))}
         </div>
-        {showSavings && <Badge color="green">Save 20% annually</Badge>}
-        {currency !== 'USD' && <Badge color="amber">Prices in {currency}</Badge>}
+        <Badge color="green">Save 20% annually</Badge>
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
         {PLAN_ORDER.map((id) => {
@@ -74,7 +43,7 @@ export default function PricingTable({ currentPlan, onSelect, busyPlan, compact 
           const featured = id === highlight;
           const isCurrent = currentPlan === id;
           const price = interval === 'annual' ? plan.annual : plan.monthly;
-          let cta = pricing.get('cta_text');
+          let cta = 'Start free trial';
           if (currentPlan) cta = isCurrent ? 'Current plan' : planRank(id) > planRank(currentPlan) ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`;
           else if (id === 'free') cta = 'Get started';
           else if (id === 'enterprise') cta = 'Talk to sales';

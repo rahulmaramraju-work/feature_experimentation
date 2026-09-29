@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { Download, FileBarChart, FileText, Lock } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { api } from '../../lib/api';
-import { useFeature } from '../../fe/useFeature';
-import { useFe } from '../../fe/FeProvider';
 import { Badge, Button, Card, CardHeader, PageHeader } from '../../components/ui';
 
 const REPORTS = [
@@ -20,8 +18,7 @@ function toCsv(rows) {
 
 export default function Reports() {
   const { user } = useAuth();
-  const csv = useFeature('csv_export');
-  const { track } = useFe();
+  const csv = { enabled: user.plan === 'enterprise' || user.role === 'admin' };
   const [busy, setBusy] = useState(null);
 
   const exportReport = async (report) => {
@@ -33,7 +30,6 @@ export default function Reports() {
       const a = Object.assign(document.createElement('a'), { href: url, download: `lumen-${report.id}-${new Date().toISOString().slice(0, 10)}.csv` });
       a.click();
       URL.revokeObjectURL(url);
-      track('report_exported', { report: report.id, format: 'csv' });
     } finally {
       setBusy(null);
     }
@@ -48,10 +44,10 @@ export default function Reports() {
             <Lock className="size-5" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold">CSV export is in private beta</p>
-            <p className="text-sm text-slate-500">We’re rolling it out gradually. {user.plan !== 'enterprise' && 'Enterprise workspaces get access first.'}</p>
+            <p className="text-sm font-semibold">CSV export is an Enterprise feature</p>
+            <p className="text-sm text-slate-500">Upgrade to Enterprise to export any report as CSV.</p>
           </div>
-          <Badge color="amber">Beta</Badge>
+          <Badge color="violet">Enterprise</Badge>
         </Card>
       )}
       <Card>
@@ -70,7 +66,7 @@ export default function Reports() {
                   <Download className="size-4" /> Export CSV
                 </Button>
               ) : (
-                <Button size="sm" variant="secondary" disabled title="CSV export is in beta">
+                <Button size="sm" variant="secondary" disabled title="CSV export is an Enterprise feature">
                   <Lock className="size-3.5" /> Export
                 </Button>
               )}

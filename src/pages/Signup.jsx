@@ -4,8 +4,6 @@ import { CheckCircle2 } from 'lucide-react';
 import AuthShell from '../components/AuthShell';
 import { Alert, Button } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { useFe } from '../fe/FeProvider';
-import { buildFeContext } from '../../shared/feContext';
 
 export const COUNTRIES = [
   ['US', 'United States'],
@@ -22,7 +20,6 @@ export const COUNTRIES = [
 
 export default function Signup() {
   const { user, signup } = useAuth();
-  const { track } = useFe();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [form, setForm] = useState({ name: '', email: '', password: '', company: '', companySize: '10', country: 'US' });
@@ -37,8 +34,7 @@ export default function Signup() {
     setError('');
     setBusy(true);
     try {
-      const u = await signup(form);
-      track('signup_completed', { intended_plan: params.get('plan') || 'free' }, buildFeContext(u));
+      await signup(form);
       navigate(params.get('plan') && params.get('plan') !== 'free' ? '/app/billing' : '/app');
     } catch (err) {
       setError(err.message);

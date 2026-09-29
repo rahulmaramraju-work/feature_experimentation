@@ -1,19 +1,17 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { AnnouncementBanner } from '../fe/FeatureEffects';
-import { useFeature } from '../fe/useFeature';
+import { Banners } from '../flags/FlagVisuals';
 import { Button, Logo } from './ui';
 
 export default function MarketingLayout() {
   const { user } = useAuth();
-  const theme = useFeature('brand_theme');
   return (
     <div className="min-h-screen bg-white">
-      <AnnouncementBanner />
+      <Banners />
       <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/">
-            <Logo badge={theme.get('badge_text')} />
+            <Logo />
           </Link>
           <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
             <a href="/#features" className="hover:text-slate-900">Product</a>
@@ -56,7 +54,7 @@ export default function MarketingLayout() {
           ))}
         </div>
         <div className="border-t border-slate-200 py-6 text-center text-xs text-slate-400">
-          © 2026 Lumen Analytics (demo). Feature flags powered by Wingify Feature Experimentation.
+          © 2026 Lumen Analytics (demo). Feature flag demo: open the Control Tower to flip the master flag.
         </div>
       </footer>
     </div>
