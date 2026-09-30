@@ -83,18 +83,18 @@ export default function MarketingLayout() {
             </Link>
           </div>
           {!side && (
-            <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
+            <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm font-medium text-slate-600">
               {LINKS.map((item) => (
-                <NavItem key={item.label} item={item} className="hover:text-slate-900" />
+                <NavItem key={item.label} item={item} className="shrink-0 rounded-md px-3 py-1.5 hover:bg-slate-100 hover:text-slate-900" />
               ))}
             </nav>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {user ? (
               <Button to="/app">Open dashboard</Button>
             ) : (
               <>
-                <Button to="/login" variant="ghost">Sign in</Button>
+                <Button to="/login" variant="ghost" className="hidden sm:inline-flex">Sign in</Button>
                 <Button to="/signup">Start free</Button>
               </>
             )}
