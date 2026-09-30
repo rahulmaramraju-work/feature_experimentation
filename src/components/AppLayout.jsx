@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import {
@@ -185,43 +185,73 @@ function SearchBox() {
   );
 }
 
+// True on screens wide enough to keep the sidebar docked next to the content.
+function useIsDesktop() {
+  const query = '(min-width: 1024px)';
+  const [desktop, setDesktop] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setDesktop(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return desktop;
+}
+
 export default function AppLayout() {
   const { values } = useFlag();
   const side = values.navigation === 'side';
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const desktop = useIsDesktop();
+  // Side navigation: a hamburger opens a sliding sidebar. Docked open on desktop, a drawer on smaller screens.
+  const [menuOpen, setMenuOpen] = useState(desktop);
+  useEffect(() => setMenuOpen(desktop), [desktop, side]);
+  const closeOnMobile = () => !desktop && setMenuOpen(false);
 
   return (
     <div className="flex min-h-screen flex-col">
       <Banners />
       <div className="flex flex-1">
-        {side && (
-          <FlagZone vars={['navigation']} label="navigation = side" as="aside" className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-slate-100/60 lg:block">
-            <Sidebar />
-          </FlagZone>
+        {side && desktop && (
+          <aside className={clsx('sticky top-0 h-screen shrink-0 overflow-hidden border-slate-200 bg-slate-100/60 transition-[width] duration-300', menuOpen ? 'w-64 border-r' : 'w-0')}>
+            <div className="h-full w-64">
+              <Sidebar />
+            </div>
+          </aside>
         )}
-        {side && mobileOpen && (
-          <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="absolute inset-0 bg-slate-900/40" onClick={() => setMobileOpen(false)} />
-            <aside className="relative h-full w-72 bg-slate-50 shadow-xl">
-              <button className="absolute right-3 top-4 p-1 text-slate-500" onClick={() => setMobileOpen(false)} aria-label="Close menu">
+        {side && !desktop && menuOpen && (
+          <div className="fixed inset-0 z-50">
+            <div className="absolute inset-0 bg-slate-900/40" onClick={() => setMenuOpen(false)} />
+            <aside className="relative h-full w-72 animate-slide-in-left bg-slate-50 shadow-xl">
+              <button className="absolute right-3 top-4 p-1 text-slate-500" onClick={() => setMenuOpen(false)} aria-label="Close menu">
                 <X className="size-5" />
               </button>
-              <Sidebar onNavigate={() => setMobileOpen(false)} />
+              <Sidebar onNavigate={closeOnMobile} />
             </aside>
           </div>
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
           {side ? (
-            <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6">
-              <button className="rounded-md p-1.5 text-slate-600 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
-                <Menu className="size-5" />
+            <FlagZone vars={['navigation']} label="navigation = side" as="header" className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6">
+              <button
+                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={menuOpen}
+              >
+                {menuOpen && desktop ? <X className="size-5" /> : <Menu className="size-5" />}
+                <span className="hidden sm:inline">Menu</span>
               </button>
+              {!menuOpen && (
+                <Link to="/app">
+                  <Logo />
+                </Link>
+              )}
               <SearchBox />
               <div className="ml-auto">
                 <UserMenu />
               </div>
-            </header>
+            </FlagZone>
           ) : (
             <FlagZone vars={['navigation']} label="navigation = top" as="header" className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
               <div className="flex h-16 items-center gap-6 px-4 sm:px-6">

@@ -112,3 +112,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .flag-flash, .animate-banner, .animate-pop, .animate-fade-up, .animate-slide-in { animation: none; }
 }
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.22s ease-out;
+}
