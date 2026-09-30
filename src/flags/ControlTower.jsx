@@ -167,7 +167,7 @@ function TextEditor({ v }) {
 }
 
 const PRESETS = {
-  banner_count: { type: 'number', value: 3, min: 1, max: 4, description: 'How many promo banners stack at the top of every page' },
+  banner_count: { type: 'number', value: 3, min: 1, max: 4, description: 'How many banners rotate in the top carousel' },
   support_bot: { type: 'boolean', value: true, description: 'Show the floating support chat bot' },
   navigation: { type: 'select', value: 'side', options: ['top', 'side'], description: 'Top navigation bar or side navigation' },
   theme_color: { type: 'color', value: '#0f766e', description: 'Primary brand colour across the product' },

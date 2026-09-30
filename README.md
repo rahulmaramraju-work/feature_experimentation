@@ -8,7 +8,7 @@ No flag SDK or external service is involved: the flag lives in the browser and s
 
 | Variable | Type | Control (flag OFF) | Default when ON | What changes |
 | --- | --- | --- | --- | --- |
-| `banner_count` | number 1–4 | 1 | 3 | Promo banners stacked at the top of every page |
+| `banner_count` | number 1–4 | 1 | 3 | Slides in the banner carousel at the top of every page |
 | `support_bot` | boolean | off | on | Floating "Lumi" support chat bot, bottom-right |
 | `navigation` | top / side | top | side | App navigation as a top bar or a sidebar |
 | `theme_color` | colour | `#4f46e5` | `#0f766e` | Primary colour across the product |

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { Bot, CalendarClock, Flag, Megaphone, MessageCircle, Percent, Send, Wrench, X } from 'lucide-react';
+import { Bot, CalendarClock, ChevronLeft, ChevronRight, Flag, Megaphone, MessageCircle, Pause, Percent, Play, Send, Wrench, X } from 'lucide-react';
 import { useFlag } from './FlagProvider';
 
 // True for ~2.5s after a change that touched any of the given variable keys.
@@ -85,19 +85,86 @@ const BANNERS = [
   { icon: Wrench, cls: 'bg-amber-400 text-amber-950', text: 'Scheduled maintenance Sunday 02:00–03:00 UTC. Dashboards may pause briefly.', cta: 'Status page' },
 ];
 
-// banner_count: 1 banner for control, up to 4 when the flag serves more.
+const SLIDE_MS = 4000;
+
+// banner_count: a single banner for control; with more, the banners rotate as a carousel.
 export function Banners() {
   const { values } = useFlag();
   const count = Math.min(4, Math.max(0, Number(values.banner_count) || 0));
+  const slides = BANNERS.slice(0, count);
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  // Start from the first slide whenever the number of slides changes.
+  useEffect(() => setIndex(0), [count]);
+
+  useEffect(() => {
+    if (slides.length < 2 || paused) return;
+    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), SLIDE_MS);
+    return () => clearInterval(t);
+  }, [slides.length, paused]);
+
+  if (!slides.length) return null;
+  const go = (i) => setIndex((i + slides.length) % slides.length);
+  const multi = slides.length > 1;
+
   return (
-    <FlagZone vars={['banner_count']} label="banner_count">
-      {BANNERS.slice(0, count).map(({ icon: Icon, cls, text, cta }, i) => (
-        <div key={text} className={clsx('flex items-center justify-center gap-3 px-4 py-2 text-sm animate-banner', cls)} style={{ animationDelay: `${i * 90}ms` }}>
-          <Icon className="size-4 shrink-0" />
-          <span className="font-medium">{text}</span>
-          <span className="hidden underline underline-offset-2 opacity-90 sm:inline">{cta} →</span>
+    <FlagZone vars={['banner_count']} label={`banner_count = ${count}`}>
+      <div className="relative overflow-hidden" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} aria-roledescription="carousel">
+        <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
+          {slides.map(({ icon: Icon, cls, text, cta }, i) => (
+            <div
+              key={text}
+              className={clsx('flex w-full shrink-0 items-center justify-center gap-3 py-2.5 text-sm', multi ? 'px-24' : 'px-4', cls)}
+              aria-roledescription="slide"
+              aria-label={`${i + 1} of ${slides.length}`}
+              aria-hidden={i !== index}
+            >
+              <Icon className="size-4 shrink-0" />
+              <span className="truncate font-medium">{text}</span>
+              <span className="hidden shrink-0 underline underline-offset-2 opacity-90 md:inline">{cta} →</span>
+            </div>
+          ))}
         </div>
-      ))}
+
+        {multi && (
+          <>
+            <button
+              onClick={() => go(index - 1)}
+              className="absolute left-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-black/20 text-white transition hover:bg-black/35"
+              aria-label="Previous banner"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <button
+              onClick={() => go(index + 1)}
+              className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-black/20 text-white transition hover:bg-black/35"
+              aria-label="Next banner"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            <div className="absolute left-10 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+              {slides.map((b, i) => (
+                <button
+                  key={b.text}
+                  onClick={() => go(i)}
+                  className={clsx('h-1.5 rounded-full bg-white transition-all', i === index ? 'w-4 opacity-100' : 'w-1.5 opacity-50 hover:opacity-80')}
+                  aria-label={`Show banner ${i + 1}`}
+                  aria-current={i === index}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => setPaused((p) => !p)}
+              className="absolute right-10 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-full bg-black/20 px-2 py-0.5 font-mono text-[10px] text-white sm:flex"
+              aria-label={paused ? 'Resume carousel' : 'Pause carousel'}
+            >
+              {paused ? <Play className="size-3" /> : <Pause className="size-3" />}
+              {index + 1}/{slides.length}
+            </button>
+          </>
+        )}
+      </div>
     </FlagZone>
   );
 }
