@@ -25,7 +25,8 @@ React 19 + Vite, Tailwind CSS v4, Netlify Functions (API), Netlify Blobs (databa
 
 ## Demo accounts
 
-Password for all: `lumen-demo-2026` (or use the one-click buttons on `/login`).
+Use the one-click buttons on `/login`. Password sign-in for these accounts uses the `DEMO_PASSWORD`
+environment variable (never committed); if it isn't set, only one-click sign-in works.
 `maya@northwind.io` (Free), `arjun@acmeretail.in` (Pro), `sofia@globex.com` (Enterprise), `admin@lumen.dev` (Admin).
 
 ## Run locally
@@ -36,4 +37,4 @@ npm install
 npm run dev            # http://localhost:8888
 ```
 
-Deploys to Netlify from `main`; the only required environment variable is `JWT_SECRET`.
+Deploys to Netlify from `main`. Required environment variable: `JWT_SECRET`. Optional: `DEMO_PASSWORD`.

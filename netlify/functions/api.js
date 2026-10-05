@@ -3,7 +3,8 @@ import { hashPassword, checkPassword, sessionCookie, clearCookie, currentUser, p
 import { ensureDemoAccount, resetAllDemoAccounts } from './lib/seed.js';
 import { workspaceAnalytics } from './lib/analytics.js';
 import { PLANS, planRank } from '../../shared/plans.js';
-import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../shared/demoAccounts.js';
+import { timingSafeEqual } from 'node:crypto';
+import { DEMO_ACCOUNTS } from '../../shared/demoAccounts.js';
 
 export const config = { path: '/api/*' };
 
@@ -19,6 +20,16 @@ const body = async (req) => {
   }
 };
 const clean = (s, max = 120) => String(s ?? '').trim().slice(0, max);
+const isDemoEmail = (email) => DEMO_ACCOUNTS.some((a) => a.email === email);
+
+// Demo accounts sign in with the DEMO_PASSWORD env var; with it unset, only one-click demo login works.
+function matchesDemoPassword(password) {
+  const expected = process.env.DEMO_PASSWORD;
+  if (!expected) return false;
+  const a = Buffer.from(String(password));
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 async function logActivity(userId, type, text) {
   const items = await db.get(`activity/${userId}`, []);
@@ -40,6 +51,7 @@ route(
   '/health',
   async () => {
     const names = ['JWT_SECRET'];
+    const optional = ['DEMO_PASSWORD'];
     let database = 'ok';
     try {
       await db.set('health/ping', { at: new Date().toISOString() });
@@ -50,7 +62,7 @@ route(
     return json({
       ok: names.every((n) => !!process.env[n]) && database === 'ok',
       database,
-      env: Object.fromEntries(names.map((n) => [n, !!process.env[n]])),
+      env: Object.fromEntries([...names, ...optional].map((n) => [n, !!process.env[n]])),
     });
   },
   { auth: false },
@@ -63,7 +75,6 @@ route(
   () =>
     json({
       demoAccounts: DEMO_ACCOUNTS.map(({ email, name, title, company, plan, persona, role }) => ({ email, name, title, company, plan, persona, role })),
-      demoPassword: DEMO_PASSWORD,
     }),
   { auth: false },
 );
@@ -77,7 +88,7 @@ route(
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail(400, 'Enter a valid work email.');
     if (String(b.password || '').length < 8) return fail(400, 'Password must be at least 8 characters.');
     if (!clean(b.name)) return fail(400, 'Tell us your name.');
-    if (await db.get(`email/${email}`)) return fail(409, 'An account with this email already exists.');
+    if (isDemoEmail(email) || await db.get(`email/${email}`)) return fail(409, 'An account with this email already exists.');
     const user = {
       id: db.newId('usr'),
       email,
@@ -108,10 +119,16 @@ route(
   async (req) => {
     const b = await body(req);
     const email = clean(b.email).toLowerCase();
-    let id = await db.get(`email/${email}`);
-    if (!id && DEMO_ACCOUNTS.some((a) => a.email === email)) id = (await ensureDemoAccount(email)).id;
-    const user = id && (await db.get(`users/${id}`));
-    if (!user || !(await checkPassword(String(b.password || ''), user.passwordHash))) return fail(401, 'Incorrect email or password.');
+    const password = String(b.password || '');
+    let user;
+    if (isDemoEmail(email)) {
+      user = matchesDemoPassword(password) ? await ensureDemoAccount(email) : null;
+    } else {
+      const id = await db.get(`email/${email}`);
+      user = id && (await db.get(`users/${id}`));
+      if (user && !(await checkPassword(password, user.passwordHash))) user = null;
+    }
+    if (!user) return fail(401, 'Incorrect email or password.');
     await logActivity(user.id, 'auth', 'Signed in');
     return json({ user: publicUser(user) }, 200, { 'set-cookie': await sessionCookie(user.id, req) });
   },

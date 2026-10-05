@@ -1,6 +1,6 @@
-// Seeded demo customers. Each one exercises a different targeting path in Wingify FE.
-// Shared test password for every demo account (demo data only, not a real credential).
-export const DEMO_PASSWORD = 'lumen-demo-2026';
+// Seeded demo customers, each with a different plan, country and company size.
+// Their password is not stored in code: password sign-in uses the DEMO_PASSWORD
+// environment variable, and the one-click buttons on /login need no password.
 
 export const DEMO_ACCOUNTS = [
   {

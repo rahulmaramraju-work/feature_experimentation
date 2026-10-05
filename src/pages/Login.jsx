@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import AuthShell from '../components/AuthShell';
 import { Alert, Button, PlanBadge } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../shared/demoAccounts';
+import { DEMO_ACCOUNTS } from '../../shared/demoAccounts';
 
 export default function Login() {
   const { user, login, demoLogin } = useAuth();
@@ -110,11 +110,6 @@ export default function Login() {
         </div>
       </div>
 
-      {DEMO_PASSWORD && (
-        <p className="mt-6 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
-          Demo accounts also work with the form: use any demo email with password <code className="font-semibold">{DEMO_PASSWORD}</code>
-        </p>
-      )}
       <p className="mt-6 text-center text-sm text-slate-500">
         New to Lumen?{' '}
         <Link to="/signup" className="font-medium text-brand hover:underline">

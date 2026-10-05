@@ -1,6 +1,6 @@
 import * as db from './db.js';
 import { hashPassword } from './auth.js';
-import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../../shared/demoAccounts.js';
+import { DEMO_ACCOUNTS } from '../../../shared/demoAccounts.js';
 import { PLANS } from '../../../shared/plans.js';
 
 const DAY = 86_400_000;
@@ -37,7 +37,8 @@ export async function seedDemoAccount(acct) {
     role: acct.role,
     isDemo: true,
     createdAt,
-    passwordHash: await hashPassword(DEMO_PASSWORD),
+    // Demo accounts authenticate against DEMO_PASSWORD at sign-in, so the stored hash is never usable.
+    passwordHash: await hashPassword(crypto.randomUUID()),
   };
   await db.set(`users/${id}`, user);
   await db.set(`email/${acct.email}`, id);
