@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { Activity, Columns2, Flag, Minus, Plus, RotateCcw, ScanSearch, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { Activity, Columns2, Flag, MapPin, Minus, Plus, RotateCcw, ScanSearch, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { CONTROL, useFlag } from './FlagProvider';
 import { Toggle } from '../components/ui';
+import { LOCATIONS, countryFlag, countryName, usePricing } from '../lib/pricing';
 
 // Variables the site actually renders from. Others can be created but are only stored.
 const WIRED = Object.keys(CONTROL);
@@ -171,6 +172,7 @@ const PRESETS = {
   support_bot: { type: 'boolean', value: true, description: 'Show the floating support chat bot' },
   navigation: { type: 'select', value: 'side', options: ['top', 'side'], description: 'Top navigation bar or side navigation' },
   theme_color: { type: 'color', value: '#0f766e', description: 'Primary brand colour across the product' },
+  regional_pricing: { type: 'boolean', value: true, description: 'Local-currency prices, decided per country by the Wingify flag regional_pricing' },
 };
 
 function AddVariable() {
@@ -217,6 +219,41 @@ function AddVariable() {
   );
 }
 
+// Location picker plus the live regional_pricing decision from Wingify.
+function RegionalPricingPanel() {
+  const p = usePricing();
+  return (
+    <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <label className="flex items-center gap-2 text-xs font-medium text-slate-600" htmlFor="tower-location">
+        <MapPin className="size-3.5 text-brand" /> Viewing from
+        <select id="tower-location" className="input ml-auto w-auto py-1 text-xs" value={p.override || p.country} onChange={(e) => p.setLocation(e.target.value)}>
+          {LOCATIONS.map(([code, name, flagEmoji]) => (
+            <option key={code} value={code}>
+              {flagEmoji} {name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="font-mono text-[11px] text-slate-600">
+        {p.regionalOff ? (
+          <>regional pricing is off → USD for everyone</>
+        ) : p.error ? (
+          <>Wingify unreachable → USD</>
+        ) : (
+          <>
+            Wingify regional_pricing → <b className="text-brand">{p.currency}</b> {p.symbol} for {countryFlag(p.country)} {countryName(p.country)}
+          </>
+        )}
+      </p>
+      {p.override && (
+        <button onClick={() => p.setLocation('')} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800">
+          <RotateCcw className="size-3" /> Use {p.accountCountry ? 'account' : 'real'} location
+        </button>
+      )}
+    </div>
+  );
+}
+
 function VariablesTab() {
   const { flag, removeVariable } = useFlag();
   return (
@@ -244,6 +281,7 @@ function VariablesTab() {
                 </button>
               </div>
             </div>
+            {v.key === 'regional_pricing' && <RegionalPricingPanel />}
           </li>
         ))}
         {flag.variables.length === 0 && <li className="px-5 py-8 text-center text-sm text-slate-500">No variables. The flag serves the control values even when ON.</li>}
@@ -258,6 +296,7 @@ const DESCRIBE = {
   support_bot: (v) => (v ? 'Support bot shown' : 'No support bot'),
   navigation: (v) => (v === 'side' ? 'Side navigation' : 'Top navigation'),
   theme_color: (v) => v,
+  regional_pricing: (v) => (v ? 'Local currency (Wingify)' : 'USD for everyone'),
 };
 
 function CompareTab() {

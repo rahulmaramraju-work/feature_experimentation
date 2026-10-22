@@ -11,6 +11,7 @@ export const CONTROL = {
   support_bot: false,
   navigation: 'top',
   theme_color: '#4f46e5',
+  regional_pricing: false,
 };
 
 export const DEFAULT_VARIABLES = [
@@ -18,14 +19,30 @@ export const DEFAULT_VARIABLES = [
   { key: 'support_bot', type: 'boolean', value: true, description: 'Show the floating support chat bot' },
   { key: 'navigation', type: 'select', value: 'side', options: ['top', 'side'], description: 'Top navigation bar or side navigation' },
   { key: 'theme_color', type: 'color', value: '#0f766e', description: 'Primary brand colour across the product' },
+  { key: 'regional_pricing', type: 'boolean', value: true, description: 'Local-currency prices, decided per country by the Wingify flag regional_pricing' },
 ];
 
-const initialState = () => ({ enabled: false, variables: DEFAULT_VARIABLES, updatedAt: Date.now() });
+// Older saved states predate regional_pricing: add it once, without restoring variables the presenter deleted.
+function migrate(state) {
+  if (state.migratedRegional) return state;
+  const has = state.variables.some((v) => v.key === 'regional_pricing');
+  return {
+    ...state,
+    migratedRegional: true,
+    variables: has ? state.variables : [...state.variables, DEFAULT_VARIABLES.find((v) => v.key === 'regional_pricing')],
+  };
+}
+
+const initialState = () => ({ enabled: false, variables: DEFAULT_VARIABLES, migratedRegional: true, updatedAt: Date.now() });
 
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const state = migrate(JSON.parse(raw));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      return state;
+    }
   } catch {
     // ignore unreadable storage
   }

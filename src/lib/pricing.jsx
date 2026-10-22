@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { useAuth } from './auth';
+import { useFlag } from '../flags/FlagProvider';
 
 // Prices come from the Wingify FE flag regional_pricing, evaluated on the server for the visitor's country.
 const PricingContext = createContext(null);
@@ -82,12 +83,24 @@ export function PricingProvider({ children }) {
     setOverrideState(code || '');
   };
 
+  // The master flag's regional_pricing variable decides whether Wingify's local prices apply at all.
+  const { values } = useFlag();
+  const regionalOff = !values.regional_pricing;
+  const shown = regionalOff ? { ...pricing, currency: 'USD', symbol: '$', rate: 1 } : pricing;
+
+  // Flash the pricing bar when the toggle flips, as when the currency changes.
+  const firstToggle = useRef(true);
+  useEffect(() => {
+    if (firstToggle.current) firstToggle.current = false;
+    else setChangedAt(Date.now());
+  }, [regionalOff]);
+
   const format = (usd) => {
-    if (!usd) return `${pricing.symbol}0`;
-    return `${pricing.symbol}${Math.round(usd * pricing.rate).toLocaleString('en-US')}`;
+    if (!usd) return `${shown.symbol}0`;
+    return `${shown.symbol}${Math.round(usd * shown.rate).toLocaleString('en-US')}`;
   };
 
-  return <PricingContext.Provider value={{ ...pricing, loading, override, setLocation, format, changedAt, reload: load }}>{children}</PricingContext.Provider>;
+  return <PricingContext.Provider value={{ ...shown, regionalOff, loading, override, setLocation, format, changedAt, reload: load }}>{children}</PricingContext.Provider>;
 }
 
 export const usePricing = () => useContext(PricingContext);

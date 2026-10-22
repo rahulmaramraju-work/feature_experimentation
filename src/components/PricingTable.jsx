@@ -49,7 +49,9 @@ export function RegionalPricingBar() {
       <span className="flex items-center gap-1.5 text-xs text-slate-500">
         <Flag className="size-3.5 text-fuchsia-600" />
         <code className="font-semibold text-slate-700">regional_pricing</code>
-        {p.error ? (
+        {p.regionalOff ? (
+          <span>off in the Control Tower (master) → USD for everyone</span>
+        ) : p.error ? (
           <span>unavailable, showing USD</span>
         ) : (
           <span>
