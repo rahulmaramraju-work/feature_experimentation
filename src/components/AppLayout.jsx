@@ -21,6 +21,7 @@ import { useAuth } from '../lib/auth';
 import { useFlag } from '../flags/FlagProvider';
 import { Banners, FlagZone } from '../flags/FlagVisuals';
 import { PLANS } from '../../shared/plans';
+import { DEMO_ACCOUNTS } from '../../shared/demoAccounts';
 import { Badge, Logo, PlanBadge } from './ui';
 
 const NAV = [
@@ -140,7 +141,7 @@ function TopNav() {
 }
 
 function UserMenu() {
-  const { user, logout } = useAuth();
+  const { user, logout, demoLogin } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const signOut = async () => {
@@ -166,7 +167,24 @@ function UserMenu() {
             <Link to="/app/billing" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100">
               <CreditCard className="size-4" /> Billing
             </Link>
-            <button onClick={signOut} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
+            <p className="mt-1 border-t border-slate-100 px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Switch account</p>
+            {DEMO_ACCOUNTS.filter((a) => a.email !== user.email).map((a) => (
+              <button
+                key={a.email}
+                onClick={async () => {
+                  setOpen(false);
+                  await demoLogin(a.email);
+                  navigate('/app/billing');
+                }}
+                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-slate-100"
+              >
+                <span className="truncate">{a.name}</span>
+                <span className="shrink-0 text-xs text-slate-400">
+                  {a.plan} · {a.country}
+                </span>
+              </button>
+            ))}
+            <button onClick={signOut} className="mt-1 flex w-full items-center gap-2 rounded-md border-t border-slate-100 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
               <LogOut className="size-4" /> Sign out
             </button>
           </div>

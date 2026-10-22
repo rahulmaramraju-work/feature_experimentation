@@ -1,11 +1,64 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { Check } from 'lucide-react';
+import { Check, Flag, MapPin, RotateCcw } from 'lucide-react';
 import { PLANS, PLAN_ORDER, planRank } from '../../shared/plans';
+import { LOCATIONS, countryFlag, countryName, usePricing } from '../lib/pricing';
 import { Badge, Button } from './ui';
 
+// Prices in the visitor's currency, as decided by the Wingify flag regional_pricing.
 export function usePrice() {
-  return { format: (usd) => `$${Math.round(usd).toLocaleString('en-US')}` };
+  const { format, currency } = usePricing();
+  return { format, currency };
+}
+
+const SOURCE_LABEL = {
+  override: 'location picker',
+  account: 'your account country',
+  location: 'your detected location',
+  default: 'default location',
+};
+
+// Shows which country the prices are for, why, and lets the presenter switch location.
+export function RegionalPricingBar() {
+  const p = usePricing();
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    if (!p.changedAt) return;
+    setFlash(true);
+    const t = setTimeout(() => setFlash(false), 2200);
+    return () => clearTimeout(t);
+  }, [p.changedAt]);
+
+  return (
+    <div className={clsx('mx-auto mb-8 flex max-w-3xl flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-xl border bg-white px-4 py-3 text-sm shadow-sm transition', flash ? 'border-brand ring-4 ring-brand-ring/40' : 'border-slate-200')}>
+      <label className="flex items-center gap-2 font-medium text-slate-700" htmlFor="pricing-location">
+        <MapPin className="size-4 text-brand" /> Viewing from
+      </label>
+      <select id="pricing-location" className="input w-auto py-1.5" value={p.override || p.country} onChange={(e) => p.setLocation(e.target.value)}>
+        {LOCATIONS.map(([code, name, flag]) => (
+          <option key={code} value={code}>
+            {flag} {name}
+          </option>
+        ))}
+      </select>
+      {p.override && (
+        <button onClick={() => p.setLocation('')} className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800">
+          <RotateCcw className="size-3.5" /> Use {p.accountCountry ? 'account' : 'my real'} location
+        </button>
+      )}
+      <span className="flex items-center gap-1.5 text-xs text-slate-500">
+        <Flag className="size-3.5 text-fuchsia-600" />
+        <code className="font-semibold text-slate-700">regional_pricing</code>
+        {p.error ? (
+          <span>unavailable, showing USD</span>
+        ) : (
+          <span>
+            → <b className="text-slate-800">{p.currency}</b> for {countryFlag(p.country)} {countryName(p.country)} (from {SOURCE_LABEL[p.source]})
+          </span>
+        )}
+      </span>
+    </div>
+  );
 }
 
 // Pricing plans with a monthly / annual toggle.
@@ -24,6 +77,7 @@ export default function PricingTable({ currentPlan, onSelect, busyPlan, compact 
           <p className="mt-3 text-slate-600">Start free. Upgrade when your team needs more. Cancel anytime.</p>
         </div>
       )}
+      <RegionalPricingBar />
       <div className="mb-8 flex items-center justify-center gap-3">
         <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
           {['monthly', 'annual'].map((i) => (
