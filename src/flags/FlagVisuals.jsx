@@ -56,13 +56,13 @@ export function FlagToast() {
       {shown.changes?.length > 0 ? (
         <ul className="mt-1.5 space-y-0.5 font-mono text-xs text-slate-300">
           {shown.changes.map((c) => (
-            <li key={c.key}>
-              {c.key}: <span className="text-slate-500">{c.from}</span> → <span className="text-emerald-300">{c.to}</span>
+            <li key={c.label || c.key}>
+              {c.label || c.key}: <span className="text-slate-500">{c.from}</span> → <span className="text-emerald-300">{c.to}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-1 text-xs text-slate-400">No visible change (flag is OFF, so variables are not served).</p>
+        <p className="mt-1 text-xs text-slate-400">No visible change for the current viewer.</p>
       )}
     </div>
   );

@@ -5,7 +5,6 @@ import { workspaceAnalytics } from './lib/analytics.js';
 import { PLANS, planRank } from '../../shared/plans.js';
 import { timingSafeEqual } from 'node:crypto';
 import { DEMO_ACCOUNTS } from '../../shared/demoAccounts.js';
-import { feClient, flagVariables, FE_ENVIRONMENT } from './lib/fe.js';
 
 export const config = { path: '/api/*' };
 
@@ -52,7 +51,7 @@ route(
   '/health',
   async () => {
     const names = ['JWT_SECRET'];
-    const optional = ['DEMO_PASSWORD', 'VWO_ACCOUNT_ID', 'VWO_SDK_KEY_DEV'];
+    const optional = ['DEMO_PASSWORD'];
     let database = 'ok';
     try {
       await db.set('health/ping', { at: new Date().toISOString() });
@@ -311,31 +310,8 @@ route('POST', '/admin/reset-demo', async (req, { user }) => {
   return json({ reset: users.length });
 });
 
-// Regional pricing, decided by the Wingify FE flag regional_pricing (Node SDK).
-// Country comes from: ?country= override, else the signed-in account, else the visitor's real location.
-const USD = { currency: 'USD', symbol: '$', rate: 1 };
-route(
-  'GET',
-  '/pricing',
-  async (req, { user, geo }) => {
-    const override = clean(new URL(req.url).searchParams.get('country'), 2).toUpperCase();
-    const geoCountry = geo?.country?.code || null;
-    const country = override || user?.country || geoCountry || 'US';
-    const source = override ? 'override' : user ? 'account' : geoCountry ? 'location' : 'default';
-    const base = { flag: 'regional_pricing', environment: FE_ENVIRONMENT, country, source, detectedCountry: geoCountry, accountCountry: user?.country || null };
-    try {
-      const client = await feClient();
-      const flag = await client.getFlag('regional_pricing', { id: user?.id || `visitor_${country}`, customVariables: { country } });
-      const vars = flagVariables(flag);
-      const enabled = flag.isEnabled();
-      const pricing = enabled && vars.currency ? { currency: vars.currency, symbol: vars.symbol, rate: Number(vars.rate) || 1 } : USD;
-      return json({ ...base, enabled, ...pricing }, 200, { 'cache-control': 'no-store' });
-    } catch (err) {
-      return json({ ...base, enabled: false, ...USD, error: err.message }, 200, { 'cache-control': 'no-store' });
-    }
-  },
-  { auth: false },
-);
+// The visitor's real country (Netlify geolocation), used by regional pricing when nobody is signed in.
+route('GET', '/geo', (req, { geo }) => json({ country: geo?.country?.code || null }, 200, { 'cache-control': 'no-store' }), { auth: false });
 
 // ---------- dispatcher ----------
 export default async (req, context) => {

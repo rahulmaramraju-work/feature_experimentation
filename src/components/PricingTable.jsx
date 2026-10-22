@@ -5,7 +5,7 @@ import { PLANS, PLAN_ORDER, planRank } from '../../shared/plans';
 import { LOCATIONS, countryFlag, countryName, usePricing } from '../lib/pricing';
 import { Badge, Button } from './ui';
 
-// Prices in the visitor's currency, as decided by the Wingify flag regional_pricing.
+// Prices in the visitor's currency, as decided by the regional_pricing rules.
 export function usePrice() {
   const { format, currency } = usePricing();
   return { format, currency };
@@ -50,12 +50,11 @@ export function RegionalPricingBar() {
         <Flag className="size-3.5 text-fuchsia-600" />
         <code className="font-semibold text-slate-700">regional_pricing</code>
         {p.regionalOff ? (
-          <span>off in the Control Tower (master) → USD for everyone</span>
-        ) : p.error ? (
-          <span>unavailable, showing USD</span>
+          <span>off in the Control Tower → USD for everyone</span>
         ) : (
           <span>
-            → <b className="text-slate-800">{p.currency}</b> for {countryFlag(p.country)} {countryName(p.country)} (from {SOURCE_LABEL[p.source]})
+            → <b className="text-slate-800">{p.currency}</b> for {countryFlag(p.country)} {countryName(p.country)}
+            {p.rule ? ` · ${p.rule.name}` : ' · default'} (from {SOURCE_LABEL[p.source]})
           </span>
         )}
       </span>

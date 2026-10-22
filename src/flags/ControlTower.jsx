@@ -4,6 +4,7 @@ import { Activity, Columns2, Flag, MapPin, Minus, Plus, RotateCcw, ScanSearch, S
 import { CONTROL, useFlag } from './FlagProvider';
 import { Toggle } from '../components/ui';
 import { LOCATIONS, countryFlag, countryName, usePricing } from '../lib/pricing';
+import { REGIONAL_RULES } from '../lib/regionalRules';
 
 // Variables the site actually renders from. Others can be created but are only stored.
 const WIRED = Object.keys(CONTROL);
@@ -172,7 +173,7 @@ const PRESETS = {
   support_bot: { type: 'boolean', value: true, description: 'Show the floating support chat bot' },
   navigation: { type: 'select', value: 'side', options: ['top', 'side'], description: 'Top navigation bar or side navigation' },
   theme_color: { type: 'color', value: '#0f766e', description: 'Primary brand colour across the product' },
-  regional_pricing: { type: 'boolean', value: true, description: 'Local-currency prices, decided per country by the Wingify flag regional_pricing' },
+  regional_pricing: { type: 'boolean', value: true, description: 'Local-currency prices by country, using the regional pricing rules below' },
 };
 
 function AddVariable() {
@@ -219,11 +220,13 @@ function AddVariable() {
   );
 }
 
-// Location picker plus the live regional_pricing decision from Wingify.
+// Regional pricing rules (simulated personalization), the viewer's location, and which rule matched.
 function RegionalPricingPanel() {
   const p = usePricing();
+  const { flag, setRegionalRule } = useFlag();
+  const rules = flag.regionalRules || {};
   return (
-    <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+    <div className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <label className="flex items-center gap-2 text-xs font-medium text-slate-600" htmlFor="tower-location">
         <MapPin className="size-3.5 text-brand" /> Viewing from
         <select id="tower-location" className="input ml-auto w-auto py-1 text-xs" value={p.override || p.country} onChange={(e) => p.setLocation(e.target.value)}>
@@ -234,22 +237,49 @@ function RegionalPricingPanel() {
           ))}
         </select>
       </label>
-      <p className="font-mono text-[11px] text-slate-600">
-        {p.regionalOff ? (
-          <>regional pricing is off → USD for everyone</>
-        ) : p.error ? (
-          <>Wingify unreachable → USD</>
-        ) : (
-          <>
-            Wingify regional_pricing → <b className="text-brand">{p.currency}</b> {p.symbol} for {countryFlag(p.country)} {countryName(p.country)}
-          </>
-        )}
-      </p>
       {p.override && (
         <button onClick={() => p.setLocation('')} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800">
           <RotateCcw className="size-3" /> Use {p.accountCountry ? 'account' : 'real'} location
         </button>
       )}
+
+      <div>
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Rules · first match wins</p>
+        <ul className="space-y-1.5">
+          {REGIONAL_RULES.map((r) => {
+            const on = rules[r.id] !== false;
+            const matched = !p.regionalOff && p.rule?.id === r.id;
+            return (
+              <li key={r.id} className={clsx('flex items-center gap-2 rounded-md border bg-white px-2.5 py-2 transition', matched ? 'border-brand ring-2 ring-brand-ring/40' : 'border-slate-200', !on && 'opacity-60')}>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                    {r.name}
+                    {matched && <span className="rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">match</span>}
+                  </p>
+                  <p className="font-mono text-[10px] text-slate-500">
+                    country in {r.countries.join(', ')} → {r.symbol} {r.currency}
+                  </p>
+                </div>
+                <Toggle checked={on} onChange={(v) => setRegionalRule(r.id, v)} label={`${r.name} rule`} />
+              </li>
+            );
+          })}
+          <li className={clsx('rounded-md border border-dashed bg-white px-2.5 py-2', !p.regionalOff && !p.rule ? 'border-brand' : 'border-slate-200')}>
+            <p className="text-xs font-semibold text-slate-800">Everyone else</p>
+            <p className="font-mono text-[10px] text-slate-500">default → $ USD</p>
+          </li>
+        </ul>
+      </div>
+
+      <p className="rounded-md bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] text-slate-200">
+        {p.regionalOff ? (
+          <>regional_pricing off → USD for everyone</>
+        ) : (
+          <>
+            {countryFlag(p.country)} {p.country} → {p.rule ? p.rule.name : 'no rule'} → <b className="text-emerald-300">{p.symbol} {p.currency}</b>
+          </>
+        )}
+      </p>
     </div>
   );
 }
@@ -296,7 +326,7 @@ const DESCRIBE = {
   support_bot: (v) => (v ? 'Support bot shown' : 'No support bot'),
   navigation: (v) => (v === 'side' ? 'Side navigation' : 'Top navigation'),
   theme_color: (v) => v,
-  regional_pricing: (v) => (v ? 'Local currency (Wingify)' : 'USD for everyone'),
+  regional_pricing: (v) => (v ? 'Local currency by country' : 'USD for everyone'),
 };
 
 function CompareTab() {

@@ -1,12 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { useAuth } from './auth';
 import { useFlag } from '../flags/FlagProvider';
+import { decidePricing, USD } from './regionalRules';
 
-// Prices come from the Wingify FE flag regional_pricing, evaluated on the server for the visitor's country.
+// Regional pricing, simulated: the visitor's country is matched against the regional_pricing rules
+// in the Control Tower. Country = location picker override, else account country, else real location.
 const PricingContext = createContext(null);
 const OVERRIDE_KEY = 'lumen_view_country';
-const REFRESH_MS = 15_000;
 
 export const LOCATIONS = [
   ['US', 'United States', '🇺🇸'],
@@ -34,44 +35,17 @@ const readOverride = () => {
 
 export function PricingProvider({ children }) {
   const { user, loading: authLoading } = useAuth();
+  const { values, flag } = useFlag();
   const [override, setOverrideState] = useState(readOverride);
-  const [pricing, setPricing] = useState({ currency: 'USD', symbol: '$', rate: 1, enabled: false, country: 'US', source: 'default' });
-  const [loading, setLoading] = useState(true);
+  const [detected, setDetected] = useState(null);
   const [changedAt, setChangedAt] = useState(0);
 
-  const load = useCallback(async () => {
-    try {
-      const next = await api(`/pricing${override ? `?country=${override}` : ''}`);
-      setPricing((prev) => {
-        if (prev.currency !== next.currency || prev.country !== next.country) setChangedAt(Date.now());
-        return next;
-      });
-    } catch {
-      // keep the last known prices
-    } finally {
-      setLoading(false);
-    }
-  }, [override]);
-
-  // Re-evaluate when the account or location changes, and periodically for dashboard edits.
+  // The visitor's real country, from Netlify's geolocation (asked once).
   useEffect(() => {
-    load();
-    const t = setInterval(load, REFRESH_MS);
-    return () => clearInterval(t);
-  }, [load, user?.id, user?.country]);
-
-  // Switching account goes back to that account's own country.
-  const lastUserId = useRef(null);
-  useEffect(() => {
-    if (authLoading) return;
-    const id = user?.id || 'anonymous';
-    if (lastUserId.current === null) lastUserId.current = id; // first load: keep any saved location
-    else if (lastUserId.current !== id) {
-      lastUserId.current = id;
-      setLocation('');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user?.id]);
+    api('/geo')
+      .then((d) => setDetected(d.country || null))
+      .catch(() => setDetected(null));
+  }, []);
 
   const setLocation = (code) => {
     try {
@@ -83,24 +57,51 @@ export function PricingProvider({ children }) {
     setOverrideState(code || '');
   };
 
-  // The master flag's regional_pricing variable decides whether Wingify's local prices apply at all.
-  const { values } = useFlag();
-  const regionalOff = !values.regional_pricing;
-  const shown = regionalOff ? { ...pricing, currency: 'USD', symbol: '$', rate: 1 } : pricing;
-
-  // Flash the pricing bar when the toggle flips, as when the currency changes.
-  const firstToggle = useRef(true);
+  // Switching account goes back to that account's own country.
+  const lastUserId = useRef(null);
   useEffect(() => {
-    if (firstToggle.current) firstToggle.current = false;
-    else setChangedAt(Date.now());
-  }, [regionalOff]);
+    if (authLoading) return;
+    const id = user?.id || 'anonymous';
+    if (lastUserId.current === null) lastUserId.current = id; // first load: keep any saved location
+    else if (lastUserId.current !== id) {
+      lastUserId.current = id;
+      setLocation('');
+    }
+  }, [authLoading, user?.id]);
+
+  const country = override || user?.country || detected || 'US';
+  const source = override ? 'override' : user ? 'account' : detected ? 'location' : 'default';
+  const regionalOff = !values.regional_pricing;
+  const decision = useMemo(() => (regionalOff ? { ...USD, rule: null } : decidePricing(country, flag.regionalRules)), [regionalOff, country, flag.regionalRules]);
+
+  // Flash the pricing bar whenever the shown currency or country changes.
+  const signature = `${decision.currency}|${country}`;
+  const lastSignature = useRef(signature);
+  useEffect(() => {
+    if (lastSignature.current !== signature) {
+      lastSignature.current = signature;
+      setChangedAt(Date.now());
+    }
+  }, [signature]);
 
   const format = (usd) => {
-    if (!usd) return `${shown.symbol}0`;
-    return `${shown.symbol}${Math.round(usd * shown.rate).toLocaleString('en-US')}`;
+    if (!usd) return `${decision.symbol}0`;
+    return `${decision.symbol}${Math.round(usd * decision.rate).toLocaleString('en-US')}`;
   };
 
-  return <PricingContext.Provider value={{ ...shown, regionalOff, loading, override, setLocation, format, changedAt, reload: load }}>{children}</PricingContext.Provider>;
+  const value = {
+    ...decision,
+    country,
+    source,
+    override,
+    detectedCountry: detected,
+    accountCountry: user?.country || null,
+    regionalOff,
+    setLocation,
+    format,
+    changedAt,
+  };
+  return <PricingContext.Provider value={value}>{children}</PricingContext.Provider>;
 }
 
 export const usePricing = () => useContext(PricingContext);
